@@ -37,32 +37,22 @@ async function updateSidebar() {
     try {
         const res = await fetch('get_cart_json.php');
         const data = await res.json();
-        
         const container = document.getElementById('sidebarContent');
         const totalEl = document.getElementById('sidebarTotal');
         
-        // Update the Navbar Badge using the function in navbar.php
-        if (typeof refreshNavCount === "function") {
-            refreshNavCount(data.count); // data.count is unique items from your JSON
-        }
+        if (typeof refreshNavCount === "function") refreshNavCount(data.count);
 
         totalEl.innerText = `₱${data.total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
         if (data.items.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-20">
-                    <div class="w-16 h-16 bg-stone-900/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
-                        <i data-lucide="coffee" class="w-6 h-6 text-stone-700"></i>
-                    </div>
-                    <p class="text-stone-500 italic text-sm font-serif">Your basket is empty</p>
-                </div>`;
+            container.innerHTML = `<div class="text-center py-20 opacity-20"><i data-lucide="coffee" class="w-12 h-12 mx-auto mb-4"></i><p>Empty</p></div>`;
         } else {
             container.innerHTML = data.items.map(item => `
                 <div class="group relative bg-white/5 rounded-2xl p-5 border border-white/5 transition-all hover:border-[#CA8A4B]/30">
                     <div id="side-view-${item.id}" class="flex justify-between items-center">
                         <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 bg-stone-800 rounded-lg flex items-center justify-center text-[#CA8A4B]">
-                                <i data-lucide="coffee" class="w-5 h-5"></i>
+                            <div class="w-12 h-12 bg-stone-800 rounded-xl overflow-hidden border border-white/10">
+                                <img src="${item.img}" class="w-full h-full object-cover">
                             </div>
                             <div>
                                 <h4 class="text-white text-sm font-bold">${item.name}</h4>
@@ -80,22 +70,21 @@ async function updateSidebar() {
                     </div>
 
                     <div id="side-edit-${item.id}" class="hidden">
-                        <div class="flex items-center justify-between gap-3 pt-2">
+                        <div class="flex flex-col gap-3 pt-2">
                             <div class="flex items-center gap-2">
-                                <select id="temp-${item.id}" class="bg-black text-white text-[10px] p-1.5 rounded-lg border border-white/10 uppercase font-bold outline-none">
-                                    <option value="Iced" ${item.temp === 'Iced' ? 'selected' : ''}>Iced</option>
-                                    <option value="Hot" ${item.temp === 'Hot' ? 'selected' : ''}>Hot</option>
+                                <select id="temp-${item.id}" class="flex-1 bg-black text-white text-[10px] p-2 rounded-lg border border-white/10 uppercase font-bold outline-none">
+                                    ${item.has_iced ? `<option value="Iced" ${item.temp === 'Iced' ? 'selected' : ''}>Iced</option>` : ''}
+                                    ${item.has_hot ? `<option value="Hot" ${item.temp === 'Hot' ? 'selected' : ''}>Hot</option>` : ''}
                                 </select>
-                                <input type="number" id="qty-${item.id}" value="${item.qty}" min="1" max="99" 
-                                       class="w-12 bg-black text-white text-center text-xs p-1.5 rounded-lg border border-white/10 font-bold outline-none">
+                                <div class="flex items-center bg-black border border-white/10 rounded-lg">
+                                    <input type="number" id="qty-${item.id}" value="${item.qty}" min="1" max="${item.stock}" 
+                                           class="w-12 text-white text-center text-xs p-2 bg-transparent font-bold outline-none">
+                                    <span class="text-[8px] pr-2 text-stone-500">MAX: ${item.stock}</span>
+                                </div>
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="toggleSideEdit(${item.id})" class="p-2 text-stone-500 hover:text-white transition">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
-                                </button>
-                                <button onclick="quickUpdate(${item.id})" class="bg-[#CA8A4B] p-2 rounded-lg text-white hover:bg-[#b07840] transition">
-                                    <i data-lucide="check" class="w-4 h-4"></i>
-                                </button>
+                                <button onclick="toggleSideEdit(${item.id})" class="flex-1 py-2 text-[9px] uppercase font-bold text-stone-500 bg-white/5 rounded-lg">Cancel</button>
+                                <button onclick="quickUpdate(${item.id})" class="flex-1 bg-[#CA8A4B] py-2 rounded-lg text-white text-[9px] uppercase font-bold hover:bg-[#b07840]">Save changes</button>
                             </div>
                         </div>
                     </div>
@@ -103,9 +92,7 @@ async function updateSidebar() {
             `).join('');
         }
         lucide.createIcons();
-    } catch (err) {
-        console.error("Cart Update Error:", err);
-    }
+    } catch (err) { console.error(err); }
 }
 
 // Logic for Clearing the whole basket

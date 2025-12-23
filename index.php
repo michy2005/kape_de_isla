@@ -26,6 +26,80 @@ if (!isset($_SESSION['user_id'])) {
             }
         }
     </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+
+            let activePrimary = 'all';
+
+            function filterPrimary(cat) {
+                activePrimary = cat;
+                // Update Buttons
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    const btnSlug = btn.innerText.toLowerCase().replace(' ', '-');
+                    if(btnSlug === cat || (cat === 'all' && btn.innerText === 'ALL ITEMS')) {
+                        btn.classList.add('active');
+                    }
+                });
+
+                // Show/Hide Subcategories
+                const subContainer = document.getElementById('subCatContainer');
+                const subButtons = document.querySelectorAll('.sub-filter-btn');
+
+                if(cat === 'all') {
+                    subContainer.classList.add('hidden');
+                } else {
+                    subContainer.classList.remove('hidden');
+                    let hasSubs = false;
+                    subButtons.forEach(btn => {
+                        btn.classList.remove('active');
+                        if(btn.getAttribute('data-parent') === cat) {
+                            btn.classList.remove('hidden');
+                            hasSubs = true;
+                        } else {
+                            btn.classList.add('hidden');
+                        }
+                    });
+                    if(!hasSubs) subContainer.classList.add('hidden');
+                }
+
+                // Filter Products
+                document.querySelectorAll('.product-card').forEach(card => {
+                    if(cat === 'all' || card.getAttribute('data-category') === cat) {
+                        card.style.display = 'flex';
+                        setTimeout(() => card.style.opacity = '1', 10);
+                    } else {
+                        card.style.opacity = '0';
+                        setTimeout(() => card.style.display = 'none', 300);
+                    }
+                });
+            }
+
+            function filterSub(subCat) {
+                document.querySelectorAll('.sub-filter-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('onclick').includes(subCat));
+                });
+
+                document.querySelectorAll('.product-card').forEach(card => {
+                    const matchesPrimary = (activePrimary === 'all' || card.getAttribute('data-category') === activePrimary);
+                    const matchesSub = card.getAttribute('data-sub') === subCat;
+
+                    if(matchesPrimary && matchesSub) {
+                        card.style.display = 'flex';
+                        setTimeout(() => card.style.opacity = '1', 10);
+                    } else {
+                        card.style.opacity = '0';
+                        setTimeout(() => card.style.display = 'none', 300);
+                    }
+                });
+            }
+
+            // Make functions global
+            window.filterPrimary = filterPrimary;
+            window.filterSub = filterSub;
+        });
+    </script>
     <style>
         body { background-color: #1a0f0a; background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png'); background-blend-mode: soft-light; }
         .glass-dark { background: rgba(44, 26, 18, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(202, 138, 75, 0.1); }
@@ -33,7 +107,20 @@ if (!isset($_SESSION['user_id'])) {
         .hover-lift:hover { transform: translateY(-10px); }
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
         .animate-float { animation: float 6s ease-in-out infinite; }
+        
+        /* Category Primary Buttons */
         .category-btn.active { background-color: #CA8A4B; color: white; border-color: transparent; }
+
+        /* Premium Sub-Category Style */
+        .sub-filter-btn { position: relative; padding: 0.5rem 1rem; color: #78716c; transition: all 0.3s ease; }
+        .sub-filter-btn::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 1px; background: #CA8A4B; transition: all 0.3s ease; transform: translateX(-50%); }
+        .sub-filter-btn:hover { color: white; }
+        .sub-filter-btn.active { color: #CA8A4B; font-weight: 600; }
+        .sub-filter-btn.active::after { width: 60%; }
+
+        /* Glass Category Label */
+        .glass-label { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.5s ease; }
+        .product-card:hover .glass-label { background: #CA8A4B; border-color: transparent; transform: scale(1.05); }
     </style>
 </head>
 <body class="text-stone-200 min-h-screen font-sans">
@@ -83,53 +170,84 @@ if (!isset($_SESSION['user_id'])) {
             <div class="w-24 h-1 bg-coffee-accent mt-6 rounded-full"></div>
         </div>
 
-        <div class="flex flex-wrap justify-center gap-4 mb-16">
-            <button onclick="filterProducts('all')" class="category-btn active px-8 py-3 rounded-full border border-white/10 text-[10px] font-bold uppercase tracking-widest transition-all">All Items</button>
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
+            <button onclick="filterPrimary('all')" class="category-btn active px-8 py-3 rounded-full border border-white/10 text-[10px] font-bold uppercase tracking-widest transition-all">All Items</button>
             <?php
             $primaries = $pdo->query("SELECT * FROM primary_categories");
             while($p_cat = $primaries->fetch()):
+                $slug = strtolower(str_replace(' ', '-', $p_cat['name']));
             ?>
-            <button onclick="filterProducts('<?= strtolower(str_replace(' ', '-', $p_cat['name'])) ?>')" class="category-btn px-8 py-3 rounded-full border border-white/10 text-[10px] font-bold uppercase tracking-widest transition-all hover:border-coffee-accent/50 text-stone-400 hover:text-white">
+            <button onclick="filterPrimary('<?= $slug ?>')" class="category-btn px-8 py-3 rounded-full border border-white/10 text-[10px] font-bold uppercase tracking-widest transition-all hover:border-coffee-accent/50 text-stone-400 hover:text-white">
                 <?= $p_cat['name'] ?>
+            </button>
+            <?php endwhile; ?>
+        </div>
+
+        <div id="subCatContainer" class="flex flex-wrap justify-center gap-8 mb-16 hidden">
+            <?php 
+            $subs = $pdo->query("SELECT s.name, c.name as p_name FROM sub_categories s JOIN primary_categories c ON s.primary_id = c.id");
+            while($s_row = $subs->fetch()):
+                $p_slug = strtolower(str_replace(' ', '-', $s_row['p_name']));
+                $s_slug = strtolower(str_replace(' ', '-', $s_row['name']));
+            ?>
+            <button onclick="filterSub('<?= $s_slug ?>')" data-parent="<?= $p_slug ?>" class="sub-filter-btn hidden text-[11px] uppercase tracking-[0.2em] font-medium">
+                <?= $s_row['name'] ?>
             </button>
             <?php endwhile; ?>
         </div>
 
         <div id="productGrid" class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <?php
-            if(isset($pdo)) {
-                $stmt = $pdo->query("SELECT p.*, c.name as primary_name 
-                                     FROM products p 
-                                     JOIN sub_categories s ON p.sub_category_id = s.id 
-                                     JOIN primary_categories c ON s.primary_id = c.id");
-                while ($row = $stmt->fetch()) :
-                    $filter_class = strtolower(str_replace(' ', '-', $row['primary_name']));
-                    $img_path = $row['image_url']; 
-                    // Extended params to include iced/hot availability and specific URLs
-                    $params = "'".$row['id']."', '" . addslashes($row['name']) . "', '" . addslashes($row['description']) . "', '₱" . number_format($row['price'], 0) . "', '" . $row['category'] . "', '" . $img_path . "', '".$row['price']."', " . $row['has_iced'] . ", " . $row['has_hot'] . ", '" . $row['image_url_iced'] . "', '" . $row['image_url_hot'] . "'";
+if(isset($pdo)) {
+    $stmt = $pdo->query("SELECT p.*, c.name as primary_name, s.name as sub_name 
+                         FROM products p 
+                         JOIN sub_categories s ON p.sub_category_id = s.id 
+                         JOIN primary_categories c ON s.primary_id = c.id");
+    while ($row = $stmt->fetch()) :
+        $p_class = strtolower(str_replace(' ', '-', $row['primary_name']));
+        $s_class = strtolower(str_replace(' ', '-', $row['sub_name']));
+        $img_path = $row['image_url']; 
+        
+        $params = "'".$row['id']."', '" 
+                 . addslashes($row['name']) . "', '" 
+                 . addslashes($row['description']) . "', '₱" 
+                 . number_format($row['price'], 0) . "', '" 
+                 . $row['category'] . "', '" 
+                 . $img_path . "', '"
+                 . $row['price']."', " 
+                 . $row['has_iced'] . ", " 
+                 . $row['has_hot'] . ", '" 
+                 . $row['image_url_iced'] . "', '" 
+                 . $row['image_url_hot'] . "', '" 
+                 . $row['stock'] . "'";
             ?>
-            <div class="product-card glass-dark rounded-3xl p-6 hover-lift group relative transition-all duration-500" data-category="<?= $filter_class ?>">
-                <div class="cursor-pointer" onclick="openModal(<?= $params ?>, false)">
-                    <div class="relative h-64 mb-6 rounded-2xl overflow-hidden shadow-2xl bg-stone-900">
-                        <img src="<?= $img_path ?>" onerror="this.src='https://images.unsplash.com/photo-1517701604599-bb29b5dd7348?q=80&w=800&auto=format&fit=crop'" class="w-full h-full object-cover group-hover:scale-110 transition duration-700 opacity-90">
-                        <div class="absolute inset-0 bg-gradient-to-t from-coffee-900/80 to-transparent"></div>
-                        <span class="absolute bottom-4 left-4 text-[10px] font-bold bg-coffee-accent/90 text-white px-3 py-1 rounded-full uppercase tracking-widest"><?=$row['category']?></span>
-                    </div>
+<div class="product-card flex flex-col glass-dark rounded-3xl p-6 hover-lift group relative transition-all duration-500" 
+     data-category="<?= $p_class ?>" 
+     data-sub="<?= $s_class ?>">
+    
+    <div class="cursor-pointer flex-grow" onclick="openModal(<?= $params ?>, false)">
+        <div class="relative h-64 mb-6 rounded-2xl overflow-hidden shadow-2xl bg-stone-900">
+            <img src="<?= $img_path ?>" onerror="this.src='https://images.unsplash.com/photo-1517701604599-bb29b5dd7348?q=80&w=800&auto=format&fit=crop'" class="w-full h-full object-cover group-hover:scale-110 transition duration-700 opacity-90">
+            <div class="absolute inset-0 bg-gradient-to-t from-coffee-900/80 to-transparent"></div>
+            <span class="absolute bottom-4 left-4 text-[10px] font-bold glass-label text-white px-4 py-1.5 rounded-full uppercase tracking-widest"><?=$row['category']?></span>
+        </div>
 
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h4 class="font-serif text-2xl text-white mb-1"><?=$row['name']?></h4>
-                            <p class="text-stone-400 text-xs leading-relaxed line-clamp-2"><?=$row['description']?></p>
-                        </div>
-                        <div class="text-right"><span class="text-xl font-serif font-bold text-coffee-accent">₱<?=number_format($row['price'], 0)?></span></div>
-                    </div>
-                </div>
-
-                <button onclick="openModal(<?= $params ?>, true)" class="w-full py-4 mt-4 bg-coffee-800 border border-coffee-accent/30 rounded-xl text-[10px] tracking-[0.3em] font-bold text-white hover:bg-coffee-accent transition-all flex items-center justify-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i> ADD TO BASKET
-                </button>
+        <div class="flex justify-between items-start mb-4">
+            <div class="w-2/3">
+                <h4 class="font-serif text-2xl text-white mb-1 truncate group-hover:text-coffee-accent transition-colors"><?=$row['name']?></h4>
+                <p class="text-stone-400 text-xs leading-relaxed line-clamp-2 h-8"><?=$row['description']?></p>
             </div>
-            <?php endwhile; } ?>
+            <div class="w-1/3 text-right">
+                <span class="text-xl font-serif font-bold text-coffee-accent">₱<?=number_format($row['price'], 0)?></span>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="openModal(<?= $params ?>, true)" class="w-full py-4 mt-auto bg-coffee-800 border border-coffee-accent/30 rounded-xl text-[10px] tracking-[0.3em] font-bold text-white hover:bg-coffee-accent transition-all flex items-center justify-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i> ADD TO BASKET
+    </button>
+</div>
+<?php endwhile; } ?>
         </div>
     </main>
 
@@ -137,83 +255,6 @@ if (!isset($_SESSION['user_id'])) {
         <p class="text-stone-500 text-[10px] tracking-[0.5em] uppercase">&copy; 2025. Locally Grounded in Bantayan.</p>
     </footer>
 
-    <script>
-        lucide.createIcons();
 
-        function filterProducts(cat) {
-            document.querySelectorAll('.category-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if(btn.innerText.toLowerCase().replace(' ', '-') === cat || (cat === 'all' && btn.innerText === 'ALL ITEMS')) {
-                    btn.classList.add('active');
-                }
-            });
-
-            document.querySelectorAll('.product-card').forEach(card => {
-                if(cat === 'all' || card.getAttribute('data-category') === cat) {
-                    card.style.display = 'block';
-                    setTimeout(() => card.style.opacity = '1', 10);
-                } else {
-                    card.style.opacity = '0';
-                    setTimeout(() => card.style.display = 'none', 300);
-                }
-            });
-        }
-
-        // Updated global vars to hold modal images
-        let currentDefaultImg = "";
-        let currentIcedImg = "";
-        let currentHotImg = "";
-
-        function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasHot, icedImg, hotImg, isDirectAdd) {
-            document.getElementById('formId').value = id;
-            document.getElementById('formName').value = name;
-            document.getElementById('formPrice').value = rawPrice;
-            document.getElementById('formQty').value = 1; 
-            document.getElementById('modalTitle').innerText = name;
-            document.getElementById('modalDesc').innerText = desc;
-            document.getElementById('modalPrice').innerText = price;
-            document.getElementById('modalCategory').innerText = category;
-            
-            // Set up image references
-            currentDefaultImg = img;
-            currentIcedImg = icedImg && icedImg !== 'NULL' ? icedImg : img;
-            currentHotImg = hotImg && hotImg !== 'NULL' ? hotImg : img;
-            document.getElementById('modalImg').src = img;
-
-            // Handle Mode Visibility
-            const icedOption = document.getElementById('optionIced');
-            const hotOption = document.getElementById('optionHot');
-            const modeLabel = document.getElementById('modeLabel');
-
-            icedOption.classList.toggle('hidden', !hasIced);
-            hotOption.classList.toggle('hidden', !hasHot);
-            modeLabel.classList.toggle('hidden', !hasIced && !hasHot);
-
-            // Select first available mode
-            if (hasIced) {
-                document.querySelector('input[name="temp"][value="Iced"]').checked = true;
-                if(icedImg && icedImg !== 'NULL') document.getElementById('modalImg').src = icedImg;
-            } else if (hasHot) {
-                document.querySelector('input[name="temp"][value="Hot"]').checked = true;
-                if(hotImg && hotImg !== 'NULL') document.getElementById('modalImg').src = hotImg;
-            }
-            
-            const btn = document.getElementById('modalSubmitBtn');
-            btn.innerText = isDirectAdd ? "Confirm Add" : "Add to Basket";
-            
-            const modal = document.getElementById('coffeeModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.body.style.overflow = 'hidden';
-            lucide.createIcons();
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('coffeeModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            document.body.style.overflow = 'auto';
-        }
-    </script>
 </body>
 </html>

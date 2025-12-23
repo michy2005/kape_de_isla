@@ -9,17 +9,30 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// 1. Fetch items from the DATABASE cart (not session)
+// 1. Fetch items from the DATABASE cart
 $cart_stmt = $pdo->prepare("SELECT * FROM cart WHERE user_id = ?");
 $cart_stmt->execute([$user_id]);
 $cart_items = $cart_stmt->fetchAll();
 
-// 2. Only proceed if the database cart has items
+// 2. Fetch User's Real Name from users table (Fixes the Undefined Key error)
+$user_stmt = $pdo->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
+$user_stmt->execute([$user_id]);
+$user_data = $user_stmt->fetch();
+$full_customer_name = $user_data['first_name'] . ' ' . $user_data['last_name'];
+
+// 3. Only proceed if the database cart has items
 if ($_SERVER["REQUEST_METHOD"] == "POST" && count($cart_items) > 0) {
-    $customer_name = $_POST['customer_name'];
-    $address_id = $_POST['address_id']; // Changed from delivery_address
-    $total = $_POST['total'];
     
+    // Fallback logic: Use the fetched DB name if POST is empty
+    $customer_name = !empty($_POST['customer_name']) ? $_POST['customer_name'] : $full_customer_name;
+    $address_id = $_POST['address_id'] ?? null; 
+    $total = $_POST['total'] ?? 0;
+    
+    // Safety check: if no address was selected, stop the order
+    if (!$address_id) {
+        die("Order failed: No delivery address selected. Please go back to the cart and add/select an address.");
+    }
+
     $items_array = [];
     foreach ($cart_items as $item) {
         $items_array[] = $item['name'] . " (x" . $item['quantity'] . ")";
@@ -27,7 +40,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && count($cart_items) > 0) {
     $items_string = implode(", ", $items_array);
 
     try {
-        // SQL UPDATED to use address_id instead of delivery_address text
+        $pdo->beginTransaction(); // Start transaction to ensure stock and order happen together
+
+        // 4. INSERT INTO ORDERS
         $sql = "INSERT INTO orders (user_id, address_id, customer_name, items, total_amount, status, created_at) 
                 VALUES (:uid, :aid, :name, :items, :total, 'Pending', NOW())";
         
@@ -40,11 +55,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && count($cart_items) > 0) {
             'total' => $total
         ]);
 
-        // Clear the database cart
+        // 5. DEDUCT STOCK FROM PRODUCTS
+        foreach ($cart_items as $item) {
+            $updateStock = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+            $updateStock->execute([$item['quantity'], $item['product_id']]);
+        }
+
+        // 6. Clear the database cart
         $deleteCart = $pdo->prepare("DELETE FROM cart WHERE user_id = ?");
         $deleteCart->execute([$user_id]);
         
-        // No more PHP redirects here because we want to show the Success UI
+        $pdo->commit(); // Save all changes
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -97,10 +118,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && count($cart_items) > 0) {
 </html>
 <?php
     } catch (PDOException $e) { 
+        $pdo->rollBack(); // Cancel changes if something fails
         die("Order failed: " . $e->getMessage()); 
     }
 } else { 
-    // If someone tries to access this page directly without items in the DB cart
     header("Location: index.php"); 
     exit; 
 }
