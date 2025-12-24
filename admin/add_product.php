@@ -31,8 +31,6 @@ if (isset($_POST['submit'])) {
     $iced_img = uploadProductImage("iced_image", $target_dir);
     $hot_img = uploadProductImage("hot_image", $target_dir);
 
-    // Note: 'category' is filled with the sub-category name for legacy display, 
-    // but 'sub_category_id' handles the structural logic.
     $stmt = $pdo->prepare("SELECT name FROM sub_categories WHERE id = ?");
     $stmt->execute([$sub_category_id]);
     $sub_name = $stmt->fetchColumn();
@@ -51,8 +49,8 @@ if (isset($_POST['submit'])) {
         $stock, 
         $has_iced, 
         $has_hot, 
-        $iced_img, // Goes to image_url_iced
-        $hot_img   // Goes to image_url_hot
+        $iced_img,
+        $hot_img 
     ]);
     
     header("Location: products.php?success=1"); exit;

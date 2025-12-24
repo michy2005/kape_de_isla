@@ -11,49 +11,58 @@ $p = $product->fetch();
 if (!$p) { header("Location: products.php"); exit; }
 
 if (isset($_POST['update'])) {
-    $name = $_POST['name'];
-    $sub_category_id = $_POST['sub_category_id'];
-    $price = $_POST['price'];
-    $desc = $_POST['description'];
-    $stock = $_POST['stock'];
-    $has_iced = isset($_POST['has_iced']) ? 1 : 0;
-    $has_hot = isset($_POST['has_hot']) ? 1 : 0;
+    try {
+        $name = $_POST['name'];
+        $sub_category_id = $_POST['sub_category_id'];
+        $price = $_POST['price'];
+        $desc = $_POST['description'];
+        $stock = $_POST['stock'];
+        $has_iced = isset($_POST['has_iced']) ? 1 : 0;
+        $has_hot = isset($_POST['has_hot']) ? 1 : 0;
 
-    function handleUpdateImage($file_key, $existing_path) {
-        if (!empty($_FILES[$file_key]["name"])) {
-            $target_dir = "../src/products/";
-            $file_name = time() . "_" . $file_key . "_" . basename($_FILES[$file_key]["name"]);
-            if (move_uploaded_file($_FILES[$file_key]["tmp_name"], $target_dir . $file_name)) {
-                return "src/products/" . $file_name;
+        function handleUpdateImage($file_key, $existing_path) {
+            if (!empty($_FILES[$file_key]["name"])) {
+                $target_dir = "../src/products/";
+                $file_name = time() . "_" . $file_key . "_" . basename($_FILES[$file_key]["name"]);
+                if (move_uploaded_file($_FILES[$file_key]["tmp_name"], $target_dir . $file_name)) {
+                    // Delete old image if it exists to save space
+                    if(!empty($existing_path) && file_exists("../".$existing_path)) {
+                        unlink("../".$existing_path);
+                    }
+                    return "src/products/" . $file_name;
+                }
             }
+            return $existing_path;
         }
-        return $existing_path;
+
+        $main_img = handleUpdateImage("product_image", $p['image_url']);
+        $iced_img = handleUpdateImage("iced_image", $p['image_url_iced']);
+        $hot_img  = handleUpdateImage("hot_image", $p['image_url_hot']);
+
+        $stmt = $pdo->prepare("SELECT name FROM sub_categories WHERE id = ?");
+        $stmt->execute([$sub_category_id]);
+        $sub_name = $stmt->fetchColumn();
+
+        $sql = "UPDATE products SET 
+                name=?, sub_category_id=?, category=?, price=?, description=?, 
+                stock=?, has_iced=?, has_hot=?, 
+                image_url=?, image_url_iced=?, image_url_hot=? 
+                WHERE id=?";
+        
+        $pdo->prepare($sql)->execute([
+            $name, $sub_category_id, $sub_name, $price, $desc, 
+            $stock, $has_iced, $has_hot, 
+            $main_img, $iced_img, $hot_img, $id
+        ]);
+
+        header("Location: products.php?updated=1");
+        exit;
+
+    } catch (Exception $e) {
+        // Redirect with error if update fails
+        header("Location: products.php?error=1");
+        exit;
     }
-
-    // Corrected keys to match your DB
-    $main_img = handleUpdateImage("product_image", $p['image_url']);
-    $iced_img = handleUpdateImage("iced_image", $p['image_url_iced']);
-    $hot_img  = handleUpdateImage("hot_image", $p['image_url_hot']);
-
-    $stmt = $pdo->prepare("SELECT name FROM sub_categories WHERE id = ?");
-    $stmt->execute([$sub_category_id]);
-    $sub_name = $stmt->fetchColumn();
-
-    // FIXED SQL: Changed iced_image_url -> image_url_iced AND hot_image_url -> image_url_hot
-    $sql = "UPDATE products SET 
-            name=?, sub_category_id=?, category=?, price=?, description=?, 
-            stock=?, has_iced=?, has_hot=?, 
-            image_url=?, image_url_iced=?, image_url_hot=? 
-            WHERE id=?";
-    
-    $pdo->prepare($sql)->execute([
-        $name, $sub_category_id, $sub_name, $price, $desc, 
-        $stock, $has_iced, $has_hot, 
-        $main_img, $iced_img, $hot_img, $id
-    ]);
-
-    header("Location: products.php?updated=1");
-    exit;
 }
 ?>
 

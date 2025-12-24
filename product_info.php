@@ -76,13 +76,13 @@
                             <label class="text-[10px] tracking-widest uppercase text-stone-500 font-bold mb-3 block">Mode</label>
                             <div class="flex gap-2">
                                 <label id="optionIced" class="flex-1 cursor-pointer group">
-                                    <input type="radio" name="temp" value="Iced" class="hidden peer" onchange="updateModalImage('Iced')">
+                                    <input type="radio" name="mode" value="Iced" class="hidden peer" onchange="updateModalImage('Iced')">
                                     <div class="mode-iced text-center py-3 rounded-xl border border-white/10 bg-white/5 transition-all">
                                         <span class="text-[10px] font-bold uppercase">🧊 Iced</span>
                                     </div>
                                 </label>
                                 <label id="optionHot" class="flex-1 cursor-pointer group">
-                                    <input type="radio" name="temp" value="Hot" class="hidden peer" onchange="updateModalImage('Hot')">
+                                    <input type="radio" name="mode" value="Hot" class="hidden peer" onchange="updateModalImage('Hot')">
                                     <div class="mode-hot text-center py-3 rounded-xl border border-white/10 bg-white/5 transition-all">
                                         <span class="text-[10px] font-bold uppercase">☕ Hot</span>
                                     </div>
@@ -122,28 +122,26 @@
 
 <script>
     let currentMaxStock = 0;
-let currentIcedImg = ""; // Add these
-let currentHotImg = "";
+    let currentIcedImg = ""; 
+    let currentHotImg = "";
 
-function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasHot, icedImg, hotImg, stock, isDirectAdd) {
-    currentMaxStock = parseInt(stock);
-    
-    // Store images for the switcher
-    currentIcedImg = icedImg && icedImg !== 'NULL' ? icedImg : img;
-    currentHotImg = hotImg && hotImg !== 'NULL' ? hotImg : img;
-        // Populate Hidden Inputs
+    function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasHot, icedImg, hotImg, stock, isDirectAdd) {
+        currentMaxStock = parseInt(stock);
+        
+        currentIcedImg = icedImg && icedImg !== 'NULL' ? icedImg : img;
+        currentHotImg = hotImg && hotImg !== 'NULL' ? hotImg : img;
+
         document.getElementById('formId').value = id;
-        document.getElementById('formName').value = name;
+        // This sets the clean name (e.g., "Bantayan Cold Brew")
+        document.getElementById('formName').value = name; 
         document.getElementById('formPrice').value = rawPrice;
         
-        // Reset Modal UI
         document.getElementById('modalTitle').innerText = name;
         document.getElementById('modalDesc').innerText = desc;
         document.getElementById('modalPrice').innerText = price;
         document.getElementById('modalCategory').innerText = category;
         document.getElementById('modalImg').src = img;
 
-        // STOCK LOGIC
         const qtySelector = document.getElementById('qtySelector');
         const soldOutMsg = document.getElementById('soldOutMsg');
         const submitBtn = document.getElementById('modalSubmitBtn');
@@ -164,7 +162,6 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
             submitBtn.innerText = isDirectAdd ? "Confirm Add" : "Add to Basket";
             formQtyInput.value = 1;
 
-            // Show badge if stock is low (e.g., less than 10)
             if(currentMaxStock < 10) {
                 badge.classList.remove('hidden');
                 document.getElementById('stockDisplay').innerText = currentMaxStock;
@@ -173,7 +170,6 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
             }
         }
 
-        // Mode Visibility logic remains same...
         const icedOption = document.getElementById('optionIced');
         const hotOption = document.getElementById('optionHot');
         const modeLabel = document.getElementById('modeLabel');
@@ -181,11 +177,12 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
         hotOption.classList.toggle('hidden', !hasHot);
         modeLabel.classList.toggle('hidden', !hasIced && !hasHot);
 
+        // Updated selection logic to use 'mode' name
         if (hasIced) {
-            document.querySelector('input[name="temp"][value="Iced"]').checked = true;
+            document.querySelector('input[name="mode"][value="Iced"]').checked = true;
             if(icedImg && icedImg !== 'NULL') document.getElementById('modalImg').src = icedImg;
         } else if (hasHot) {
-            document.querySelector('input[name="temp"][value="Hot"]').checked = true;
+            document.querySelector('input[name="mode"][value="Hot"]').checked = true;
             if(hotImg && hotImg !== 'NULL') document.getElementById('modalImg').src = hotImg;
         }
 
@@ -200,7 +197,7 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
         const input = document.getElementById('formQty');
         let val = parseInt(input.value) + n;
         if (val < 1) val = 1;
-        if (val > currentMaxStock) val = currentMaxStock; // Cannot exceed DB stock
+        if (val > currentMaxStock) val = currentMaxStock; 
         input.value = val;
     }
 
@@ -234,7 +231,7 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
         }
     }
 
-    function refreshSidebar() {
+function refreshSidebar() {
         fetch('get_cart_json.php').then(res => res.json()).then(data => {
             const container = document.getElementById('sidebarContent');
             const totalDisplay = document.getElementById('sidebarTotal');
@@ -253,7 +250,7 @@ function openModal(id, name, desc, price, category, img, rawPrice, hasIced, hasH
                                 </div>
                                 <div>
                                     <h4 class="text-white text-sm font-bold">${item.name}</h4>
-                                    <p class="text-[9px] text-stone-500 uppercase tracking-widest">${item.temp} • Qty: ${item.qty}</p>
+                                    <p class="text-[9px] text-stone-500 uppercase tracking-widest">${item.mode} • Qty: ${item.qty}</p>
                                 </div>
                             </div>
                             <p class="text-[#CA8A4B] font-bold text-xs">₱${(item.price * item.qty).toLocaleString()}</p>

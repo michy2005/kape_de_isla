@@ -56,7 +56,7 @@ async function updateSidebar() {
                             </div>
                             <div>
                                 <h4 class="text-white text-sm font-bold">${item.name}</h4>
-                                <p class="text-[9px] text-stone-500 uppercase tracking-widest">${item.temp} • Qty: ${item.qty}</p>
+                                <p class="text-[9px] text-stone-500 uppercase tracking-widest">${item.mode} • Qty: ${item.qty}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
@@ -72,9 +72,9 @@ async function updateSidebar() {
                     <div id="side-edit-${item.id}" class="hidden">
                         <div class="flex flex-col gap-3 pt-2">
                             <div class="flex items-center gap-2">
-                                <select id="temp-${item.id}" class="flex-1 bg-black text-white text-[10px] p-2 rounded-lg border border-white/10 uppercase font-bold outline-none">
-                                    ${item.has_iced ? `<option value="Iced" ${item.temp === 'Iced' ? 'selected' : ''}>Iced</option>` : ''}
-                                    ${item.has_hot ? `<option value="Hot" ${item.temp === 'Hot' ? 'selected' : ''}>Hot</option>` : ''}
+                                <select id="mode-${item.id}" class="flex-1 bg-black text-white text-[10px] p-2 rounded-lg border border-white/10 uppercase font-bold outline-none">
+                                    ${item.has_iced ? `<option value="Iced" ${item.mode === 'Iced' ? 'selected' : ''}>Iced</option>` : ''}
+                                    ${item.has_hot ? `<option value="Hot" ${item.mode === 'Hot' ? 'selected' : ''}>Hot</option>` : ''}
                                 </select>
                                 <div class="flex items-center bg-black border border-white/10 rounded-lg">
                                     <input type="number" id="qty-${item.id}" value="${item.qty}" min="1" max="${item.stock}" 
@@ -95,10 +95,6 @@ async function updateSidebar() {
     } catch (err) { console.error(err); }
 }
 
-// Logic for Clearing the whole basket
-/**
- * Clears the whole basket with a SweetAlert2 confirmation and custom GIF
- */
 async function clearCart() {
     Swal.fire({
         imageUrl: 'src/images/Caf-marrom.gif', 
@@ -114,17 +110,9 @@ async function clearCart() {
         cancelButtonText: 'No, keep them',
         background: '#1a0f0a',
         color: '#ffffff',
-        showClass: {
-            popup: 'animate__animated animate__fadeInDown'
-        },
-        hideClass: {
-            popup: 'animate__animated animate__fadeOutUp'
-        },
         customClass: {
             popup: 'rounded-[2rem] border border-white/10 glass-dark shadow-2xl',
-            // Negative margin-bottom pulls the title UP towards the image
             image: 'mt-2 -mb-8', 
-            // Negative margin-top on title reduces the gap even further
             title: '-mt-4 font-serif italic text-3xl' 
         }
     }).then(async (result) => {
@@ -150,6 +138,7 @@ async function clearCart() {
         }
     });
 }
+
 function toggleSideEdit(id) {
     const view = document.getElementById(`side-view-${id}`);
     const edit = document.getElementById(`side-edit-${id}`);
@@ -159,12 +148,12 @@ function toggleSideEdit(id) {
 
 async function quickUpdate(id) {
     const qty = document.getElementById(`qty-${id}`).value;
-    const temp = document.getElementById(`temp-${id}`).value;
+    const mode = document.getElementById(`mode-${id}`).value; // Changed to mode
     const formData = new FormData();
     formData.append('update_cart', '1');
     formData.append('cart_id', id);
     formData.append('quantity', qty);
-    formData.append('temp', temp);
+    formData.append('mode', mode); // Sends 'mode' to PHP
 
     await fetch('cart.php', { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
     updateSidebar();
@@ -181,15 +170,11 @@ function toggleCart() {
     const isOpen = !sidebar.classList.contains('translate-x-full');
 
     if (isOpen) {
-        // Closing the sidebar
         sidebar.classList.add('translate-x-full');
         overlay.classList.add('hidden');
         overlay.classList.remove('opacity-100');
-        
-        // Final sync of the navbar badge when closing
         if (typeof updateSidebar === "function") updateSidebar(); 
     } else {
-        // Opening the sidebar
         updateSidebar(); 
         sidebar.classList.remove('translate-x-full');
         overlay.classList.remove('hidden');

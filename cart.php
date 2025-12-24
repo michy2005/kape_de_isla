@@ -9,33 +9,32 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// --- 1. NEW LOGIC: FETCH USER FULL NAME ---
+// 1. FETCH USER FULL NAME
 $user_stmt = $pdo->prepare("SELECT first_name, middle_name, last_name FROM users WHERE id = ?");
 $user_stmt->execute([$user_id]);
 $u = $user_stmt->fetch();
 
-// Format Name: "First Middle Last" (filters out empty middle names)
 $fullName = trim($u['first_name'] . ' ' . ($u['middle_name'] ? $u['middle_name'] . ' ' : '') . $u['last_name']);
 
 
 // 2. ADD TO DATABASE CART
 if (isset($_POST['add_to_cart'])) {
     $product_id = $_POST['id'];
-    $name = ($_POST['temp'] ?? 'Iced') . " " . ($_POST['name'] ?? 'Coffee');
+    $mode = $_POST['mode'] ?? 'Iced';
+    $name = $_POST['name'] ?? 'Coffee';
     $price = (float)$_POST['price'];
     $qty = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 1;
-    $temp = $_POST['temp'] ?? 'Iced';
 
-    $check = $pdo->prepare("SELECT id FROM cart WHERE user_id = ? AND product_id = ? AND temp = ?");
-    $check->execute([$user_id, $product_id, $temp]);
+    $check = $pdo->prepare("SELECT id FROM cart WHERE user_id = ? AND product_id = ? AND mode = ?");
+    $check->execute([$user_id, $product_id, $mode]);
     $existing = $check->fetch();
 
     if ($existing) {
         $stmt = $pdo->prepare("UPDATE cart SET quantity = quantity + ? WHERE id = ?");
         $stmt->execute([$qty, $existing['id']]);
     } else {
-        $stmt = $pdo->prepare("INSERT INTO cart (user_id, product_id, name, price, quantity, temp) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$user_id, $product_id, $name, $price, $qty, $temp]);
+        $stmt = $pdo->prepare("INSERT INTO cart (user_id, product_id, name, price, quantity, mode) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$user_id, $product_id, $name, $price, $qty, $mode]);
     }
     header("Location: cart.php"); exit();
 }
@@ -44,19 +43,19 @@ if (isset($_POST['add_to_cart'])) {
 if (isset($_POST['update_cart'])) {
     $cart_id = $_POST['cart_id'];
     $new_qty = (int)$_POST['quantity'];
-    $new_temp = $_POST['temp'];
-    
+    $new_mode = $_POST['mode'] ?? 'Iced';
+
     $stmt = $pdo->prepare("SELECT c.product_id, c.name, p.stock FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ?");
     $stmt->execute([$cart_id]);
     $data = $stmt->fetch();
 
     if ($new_qty > $data['stock']) { $new_qty = $data['stock']; }
-    
-    $clean_name = str_replace(['Iced ', 'Hot '], '', $data['name']);
-    $new_name = $new_temp . " " . $clean_name;
 
-    $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, temp = ?, name = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$new_qty, $new_temp, $new_name, $cart_id, $user_id]);
+    $clean_name = str_replace(['Iced ', 'Hot '], '', $data['name']);
+    $new_name = $clean_name;
+
+    $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, mode = ?, name = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$new_qty, $new_mode, $new_name, $cart_id, $user_id]);
     header("Location: cart.php"); exit();
 }
 
@@ -70,7 +69,7 @@ if (isset($_GET['clear'])) {
     header("Location: index.php"); exit();
 }
 
-// FETCH ITEMS WITH JOIN FOR IMAGES AND STOCK
+// FETCH ITEMS
 $stmt = $pdo->prepare("
     SELECT c.*, p.image_url, p.image_url_iced, p.image_url_hot, p.has_iced, p.has_hot, p.stock 
     FROM cart c 
@@ -118,9 +117,10 @@ $cart_items = $stmt->fetchAll();
                     $subtotal = $item['price'] * $item['quantity'];
                     $total += $subtotal; 
                     
+                    // FIXED: Using $item['mode'] which is the DB column name
                     $display_img = $item['image_url'];
-                    if ($item['temp'] == 'Iced' && !empty($item['image_url_iced'])) $display_img = $item['image_url_iced'];
-                    if ($item['temp'] == 'Hot' && !empty($item['image_url_hot'])) $display_img = $item['image_url_hot'];
+                    if ($item['mode'] == 'Iced' && !empty($item['image_url_iced'])) $display_img = $item['image_url_iced'];
+                    if ($item['mode'] == 'Hot' && !empty($item['image_url_hot'])) $display_img = $item['image_url_hot'];
                 ?>
                 <div class="glass-dark p-6 rounded-2xl border-white/5 relative overflow-hidden group">
                     <div id="view-<?= $item['id'] ?>" class="flex justify-between items-center">
@@ -131,7 +131,7 @@ $cart_items = $stmt->fetchAll();
                             <div>
                                 <h4 class="text-white font-serif text-xl italic"><?= htmlspecialchars($item['name']) ?></h4>
                                 <div class="flex items-center gap-2">
-                                    <p class="text-stone-500 text-[10px] tracking-widest uppercase"><?= $item['temp'] ?> • Qty: <?= $item['quantity'] ?></p>
+                                    <p class="text-stone-500 text-[10px] tracking-widest uppercase"><?= $item['mode'] ?> • Qty: <?= $item['quantity'] ?></p>
                                     <span class="text-[9px] text-[#CA8A4B] font-bold px-2 py-0.5 rounded-full bg-[#CA8A4B]/10">₱<?= number_format($item['price'], 2) ?> ea</span>
                                 </div>
                             </div>
@@ -156,9 +156,9 @@ $cart_items = $stmt->fetchAll();
                         <input type="hidden" name="cart_id" value="<?= $item['id'] ?>">
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                             <div class="flex items-center gap-4">
-                                <select name="temp" class="bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] uppercase font-bold text-stone-300 outline-none focus:border-[#CA8A4B]">
-                                    <?php if($item['has_iced']): ?><option value="Iced" <?= $item['temp'] == 'Iced' ? 'selected' : '' ?>>Iced Mode</option><?php endif; ?>
-                                    <?php if($item['has_hot']): ?><option value="Hot" <?= $item['temp'] == 'Hot' ? 'selected' : '' ?>>Hot Mode</option><?php endif; ?>
+                                <select name="mode" class="bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] uppercase font-bold text-stone-300 outline-none focus:border-[#CA8A4B]">
+                                    <?php if($item['has_iced']): ?><option value="Iced" <?= $item['mode'] == 'Iced' ? 'selected' : '' ?>>Iced Mode</option><?php endif; ?>
+                                    <?php if($item['has_hot']): ?><option value="Hot" <?= $item['mode'] == 'Hot' ? 'selected' : '' ?>>Hot Mode</option><?php endif; ?>
                                 </select>
                                 
                                 <div class="flex flex-col items-start gap-1">
