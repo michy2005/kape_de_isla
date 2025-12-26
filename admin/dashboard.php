@@ -80,6 +80,17 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
             to { opacity: 1; transform: scale(1); }
         }
 
+        .btn-gold {
+            background: linear-gradient(135deg, #CA8A4B 0%, #8b5e34 100%);
+            box-shadow: 0 4px 15px rgba(202, 138, 75, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .btn-gold:hover {
+            filter: brightness(1.2);
+            transform: translateY(-1px);
+        }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #CA8A4B; border-radius: 10px; }
     </style>
@@ -105,6 +116,9 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
                 </a>
                 <a href="archives.php" class="glass-dark px-6 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition flex items-center gap-2">
                     <i data-lucide="archive" class="w-4 h-4"></i> Sales History
+                </a>
+                <a href="manage_riders.php" class="glass-dark px-6 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#CA8A4B]/20 transition flex items-center gap-2 border border-[#CA8A4B]/30">
+                    <i data-lucide="bike" class="w-4 h-4 text-[#CA8A4B]"></i> Manage Riders
                 </a>
                 <a href="logout.php" class="bg-red-900/10 text-red-400 px-6 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest border border-red-900/20 hover:bg-red-900/20 transition">
                     Logout 
@@ -181,7 +195,7 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
                         <tr class="text-[10px] tracking-[0.2em] text-[#CA8A4B] uppercase bg-black/40">
                             <th class="p-8">Customer & ID</th>
                             <th class="p-8">Ordered Items</th>
-                            <th class="p-8">Delivery Details</th>
+                            <th class="p-8">Logistics</th>
                             <th class="p-8 text-center">Amount</th>
                             <th class="p-8">Status</th>
                             <th class="p-8 text-right">Actions</th>
@@ -230,15 +244,28 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
         </div>
     </div>
 
+    <div id="riderModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] hidden items-center justify-center p-4">
+        <div class="glass-dark w-full max-w-md rounded-[2.5rem] border-[#CA8A4B]/20 modal-animate overflow-hidden">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                <h3 class="font-serif text-xl text-white italic">Assign Delivery Rider</h3>
+                <button onclick="closeRiderModal()" class="text-stone-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="riderListContent" class="p-6 space-y-3 max-h-[400px] overflow-y-auto">
+                </div>
+        </div>
+    </div>
+
     <script>
         let lastOrderCount = <?= $today_orders ?>;
         let ordersData = [];
+        let activeOrderId = null;
 
         async function fetchOrders() {
             const filter = document.getElementById('statusFilter').value;
             const sort = document.getElementById('sortFilter').value;
 
             try {
+                // IMPORTANT: Your api_fetch_orders.php must now return rider_name in the JSON
                 const response = await fetch(`api/api_fetch_orders.php?status=${filter}&sort=${sort}`);
                 const data = await response.json();
                 ordersData = data.orders;
@@ -263,12 +290,25 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
                             <div class="max-w-[200px] space-y-1">${o.items_html}</div>
                         </td>
                         <td class="p-8">
-                            ${o.address ? `
-                                <div class="flex items-start gap-2 max-w-xs">
-                                    <i data-lucide="map-pin" class="w-3 h-3 text-stone-600 mt-0.5 shrink-0"></i>
-                                    <p class="text-stone-400 text-[11px] leading-tight line-clamp-2">${o.address}</p>
-                                </div>
-                            ` : `<p class="text-red-900/50 text-[9px] font-black uppercase">Pickup</p>`}
+                            <div class="flex flex-col gap-2">
+                                ${o.rider_name ? `
+                                    <div class="flex items-center gap-2 bg-[#CA8A4B]/5 p-2 rounded-xl border border-[#CA8A4B]/20">
+                                        <i data-lucide="truck" class="w-3 h-3 text-[#CA8A4B]"></i>
+                                        <span class="text-[10px] font-bold text-stone-300 uppercase">${o.rider_name}</span>
+                                    </div>
+                                ` : (o.status === 'Brewing' || o.status === 'Pending' ? `
+                                    <button onclick="openRiderModal(${o.id}, event)" class="btn-gold px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-white flex items-center gap-2">
+                                        <i data-lucide="user-plus" class="w-3 h-3"></i> Assign Rider
+                                    </button>
+                                ` : `<span class="text-[9px] text-stone-600 font-bold uppercase italic">N/A</span>`)}
+                                
+                                ${o.address ? `
+                                    <div class="flex items-start gap-2 max-w-[150px]">
+                                        <i data-lucide="map-pin" class="w-3 h-3 text-stone-600 mt-0.5 shrink-0"></i>
+                                        <p class="text-stone-400 text-[10px] leading-tight line-clamp-1">${o.address}</p>
+                                    </div>
+                                ` : `<p class="text-red-900/50 text-[9px] font-black uppercase">Pickup</p>`}
+                            </div>
                         </td>
                         <td class="p-8 text-center">
                             <span class="text-white font-serif text-lg italic">₱${parseFloat(o.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -294,6 +334,58 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
 
                 lucide.createIcons();
             } catch (err) { console.error("Sync Error:", err); }
+        }
+
+        async function openRiderModal(orderId, event) {
+            event.stopPropagation();
+            activeOrderId = orderId;
+            const modal = document.getElementById('riderModal');
+            const content = document.getElementById('riderListContent');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            content.innerHTML = '<p class="text-center text-stone-500 py-10 animate-pulse">Checking available riders...</p>';
+
+            try {
+                const response = await fetch('api/api_fetch_available_riders.php');
+                const riders = await response.json();
+
+                if (riders.length === 0) {
+                    content.innerHTML = '<div class="text-center p-8 bg-red-500/5 rounded-3xl border border-red-500/10"><p class="text-red-400 text-xs font-bold uppercase">No Riders Available</p></div>';
+                } else {
+                    content.innerHTML = riders.map(r => `
+                        <div onclick="assignRiderAction(${r.id})" class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-[#CA8A4B]/50 hover:bg-[#CA8A4B]/5 cursor-pointer transition-all group">
+                            <div>
+                                <p class="text-sm font-bold text-white">${r.first_name} ${r.last_name}</p>
+                                <p class="text-[10px] text-stone-500 uppercase">${r.vehicle_details}</p>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-700 group-hover:text-[#CA8A4B]"></i>
+                        </div>
+                    `).join('');
+                }
+                lucide.createIcons();
+            } catch (err) { content.innerHTML = '<p class="text-red-500 text-xs">Error loading riders.</p>'; }
+        }
+
+        function closeRiderModal() {
+            document.getElementById('riderModal').classList.add('hidden');
+            document.getElementById('riderModal').classList.remove('flex');
+        }
+
+        async function assignRiderAction(riderId) {
+            const formData = new URLSearchParams();
+            formData.append('order_id', activeOrderId);
+            formData.append('rider_id', riderId);
+
+            const response = await fetch('api/api_assign_rider.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                closeRiderModal();
+                fetchOrders();
+            }
         }
 
         function openOrderModal(orderId, event) {
@@ -372,9 +464,11 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pend
             document.getElementById('liveClock').textContent = now.toLocaleDateString('en-US', options);
         }
 
-        // Close modal on escape or background click
-        window.onclick = (e) => { if (e.target.id === 'orderModal') closeOrderModal(); };
-        document.addEventListener('keydown', (e) => { if (e.key === "Escape") closeOrderModal(); });
+        window.onclick = (e) => { 
+            if (e.target.id === 'orderModal') closeOrderModal(); 
+            if (e.target.id === 'riderModal') closeRiderModal();
+        };
+        document.addEventListener('keydown', (e) => { if (e.key === "Escape") { closeOrderModal(); closeRiderModal(); } });
 
         setInterval(updateClock, 1000);
         setInterval(fetchOrders, 5000);

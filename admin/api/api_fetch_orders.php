@@ -17,11 +17,14 @@ $today_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE DATE(created_at) =
 $pending_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('Pending', 'Brewing')")->fetchColumn();
 
 /** * 2. ORDER FETCHING LOGIC
- * We hide 'Archived' orders from the main list to keep it clean.
+ * Added LEFT JOIN with riders to get first_name and last_name
  */
-$sql = "SELECT orders.*, ua.house_no, ua.street, ua.barangay, ua.notes 
+$sql = "SELECT orders.*, 
+               ua.house_no, ua.street, ua.barangay, ua.notes,
+               r.first_name as rider_fname, r.last_name as rider_lname
         FROM orders 
         LEFT JOIN user_addresses ua ON orders.address_id = ua.id 
+        LEFT JOIN riders r ON orders.rider_id = r.id
         WHERE orders.status != 'Archived'";
 
 if ($status !== 'All') {
@@ -55,6 +58,12 @@ foreach ($orders as $o) {
                         </p>";
     }
 
+    // Combine rider names if a rider is assigned
+    $rider_display_name = null;
+    if ($o['rider_fname']) {
+        $rider_display_name = $o['rider_fname'] . " " . $o['rider_lname'];
+    }
+
     $data[] = [
         'id' => $o['id'],
         'customer_name' => $o['customer_name'],
@@ -63,14 +72,15 @@ foreach ($orders as $o) {
         'address' => $o['house_no'] ? "{$o['house_no']} {$o['street']}, {$o['barangay']}" : null,
         'note' => $o['notes'],
         'total_amount' => $o['total_amount'],
-        'status' => $o['status']
+        'status' => $o['status'],
+        'rider_name' => $rider_display_name // This feeds the "Logistics" column in your dashboard
     ];
 }
 
 // Return combined JSON
 echo json_encode([
-    'revenue' => $revenue,
-    'today_count' => $today_count,
-    'pending_count' => $pending_count,
+    'revenue' => (float)$revenue,
+    'today_count' => (int)$today_count,
+    'pending_count' => (int)$pending_count,
     'orders' => $data
 ]);

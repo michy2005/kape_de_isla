@@ -5,6 +5,11 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
+
+/** * PREMIUM BADGE DATA FETCHING */
+// Popular: Only if product has > 100 total quantity sold
+$pop_stmt = $pdo->query("SELECT product_id FROM order_items GROUP BY product_id HAVING SUM(quantity) > 100");
+$popular_ids = $pop_stmt->fetchAll(PDO::FETCH_COLUMN, 0);
 ?>
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
@@ -29,12 +34,10 @@ if (!isset($_SESSION['user_id'])) {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             lucide.createIcons();
-
             let activePrimary = 'all';
 
             function filterPrimary(cat) {
                 activePrimary = cat;
-                // Update Buttons
                 document.querySelectorAll('.category-btn').forEach(btn => {
                     btn.classList.remove('active');
                     const btnSlug = btn.innerText.toLowerCase().replace(' ', '-');
@@ -43,7 +46,6 @@ if (!isset($_SESSION['user_id'])) {
                     }
                 });
 
-                // Show/Hide Subcategories
                 const subContainer = document.getElementById('subCatContainer');
                 const subButtons = document.querySelectorAll('.sub-filter-btn');
 
@@ -64,7 +66,6 @@ if (!isset($_SESSION['user_id'])) {
                     if(!hasSubs) subContainer.classList.add('hidden');
                 }
 
-                // Filter Products
                 document.querySelectorAll('.product-card').forEach(card => {
                     if(cat === 'all' || card.getAttribute('data-category') === cat) {
                         card.style.display = 'flex';
@@ -80,11 +81,9 @@ if (!isset($_SESSION['user_id'])) {
                 document.querySelectorAll('.sub-filter-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.getAttribute('onclick').includes(subCat));
                 });
-
                 document.querySelectorAll('.product-card').forEach(card => {
                     const matchesPrimary = (activePrimary === 'all' || card.getAttribute('data-category') === activePrimary);
                     const matchesSub = card.getAttribute('data-sub') === subCat;
-
                     if(matchesPrimary && matchesSub) {
                         card.style.display = 'flex';
                         setTimeout(() => card.style.opacity = '1', 10);
@@ -94,8 +93,6 @@ if (!isset($_SESSION['user_id'])) {
                     }
                 });
             }
-
-            // Make functions global
             window.filterPrimary = filterPrimary;
             window.filterSub = filterSub;
         });
@@ -107,20 +104,35 @@ if (!isset($_SESSION['user_id'])) {
         .hover-lift:hover { transform: translateY(-10px); }
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
         .animate-float { animation: float 6s ease-in-out infinite; }
-        
-        /* Category Primary Buttons */
         .category-btn.active { background-color: #CA8A4B; color: white; border-color: transparent; }
-
-        /* Premium Sub-Category Style */
         .sub-filter-btn { position: relative; padding: 0.5rem 1rem; color: #78716c; transition: all 0.3s ease; }
         .sub-filter-btn::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 1px; background: #CA8A4B; transition: all 0.3s ease; transform: translateX(-50%); }
         .sub-filter-btn:hover { color: white; }
         .sub-filter-btn.active { color: #CA8A4B; font-weight: 600; }
         .sub-filter-btn.active::after { width: 60%; }
-
-        /* Glass Category Label */
         .glass-label { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.5s ease; }
         .product-card:hover .glass-label { background: #CA8A4B; border-color: transparent; transform: scale(1.05); }
+
+        /* ULTRA MINI PREMIUM BADGE */
+        .mini-badge {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .badge-pop { background: rgba(202, 138, 75, 0.2); color: #CA8A4B; border-color: rgba(202, 138, 75, 0.3); }
+        .badge-new { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.25); }
+        .badge-low { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.25); }
     </style>
 </head>
 <body class="text-stone-200 min-h-screen font-sans">
@@ -140,7 +152,6 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="story.php" class="inline-block border border-stone-700 text-white px-10 py-4 rounded-full text-sm font-bold tracking-widest hover:bg-white hover:text-black transition-all duration-300">OUR STORY</a>
             </div>
         </div>
-
         <div class="lg:w-1/2 flex justify-center items-center relative z-0">
             <img src="src/images/coffee-beans.png" class="absolute top-0 right-0 w-32 opacity-50 animate-pulse" alt="Beans">
             <div class="relative w-80 h-80 md:w-[500px] md:h-[500px] animate-float">
@@ -207,24 +218,26 @@ if(isset($pdo)) {
         $p_class = strtolower(str_replace(' ', '-', $row['primary_name']));
         $s_class = strtolower(str_replace(' ', '-', $row['sub_name']));
         $img_path = $row['image_url']; 
-        
-        $params = "'".$row['id']."', '" 
-                 . addslashes($row['name']) . "', '" 
-                 . addslashes($row['description']) . "', '₱" 
-                 . number_format($row['price'], 0) . "', '" 
-                 . $row['category'] . "', '" 
-                 . $img_path . "', '"
-                 . $row['price']."', " 
-                 . $row['has_iced'] . ", " 
-                 . $row['has_hot'] . ", '" 
-                 . $row['image_url_iced'] . "', '" 
-                 . $row['image_url_hot'] . "', '" 
-                 . $row['stock'] . "'";
+
+        // Badge Conditions
+        $is_new = (strtotime($row['created_at']) > strtotime('-7 days'));
+        $is_popular = in_array($row['id'], $popular_ids);
+        $is_low_stock = ($row['stock'] > 0 && $row['stock'] <= 6);
+
+        $params = "'".$row['id']."', '" . addslashes($row['name']) . "', '" . addslashes($row['description']) . "', '₱" . number_format($row['price'], 0) . "', '" . $row['category'] . "', '" . $img_path . "', '" . $row['price']."', " . $row['has_iced'] . ", " . $row['has_hot'] . ", '" . $row['image_url_iced'] . "', '" . $row['image_url_hot'] . "', '" . $row['stock'] . "'";
             ?>
 <div class="product-card flex flex-col glass-dark rounded-3xl p-6 hover-lift group relative transition-all duration-500" 
      data-category="<?= $p_class ?>" 
      data-sub="<?= $s_class ?>">
     
+    <?php if ($is_low_stock): ?>
+        <div class="mini-badge badge-low"><i data-lucide="zap" class="w-2 h-2"></i> Low</div>
+    <?php elseif ($is_popular): ?>
+        <div class="mini-badge badge-pop"><i data-lucide="flame" class="w-2 h-2"></i> Popular</div>
+    <?php elseif ($is_new): ?>
+        <div class="mini-badge badge-new"><i data-lucide="sparkles" class="w-2 h-2"></i> New</div>
+    <?php endif; ?>
+
     <div class="cursor-pointer flex-grow" onclick="openModal(<?= $params ?>, false)">
         <div class="relative h-64 mb-6 rounded-2xl overflow-hidden shadow-2xl bg-stone-900">
             <img src="<?= $img_path ?>" onerror="this.src='https://images.unsplash.com/photo-1517701604599-bb29b5dd7348?q=80&w=800&auto=format&fit=crop'" class="w-full h-full object-cover group-hover:scale-110 transition duration-700 opacity-90">
@@ -254,7 +267,6 @@ if(isset($pdo)) {
     <footer class="bg-coffee-900 py-16 text-center relative z-10 border-t border-coffee-800">
         <p class="text-stone-500 text-[10px] tracking-[0.5em] uppercase">&copy; 2025. Locally Grounded in Bantayan.</p>
     </footer>
-
 
 </body>
 </html>
