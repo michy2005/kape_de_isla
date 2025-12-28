@@ -163,10 +163,10 @@ $orders = $stmt->fetchAll();
                         <?php endif; ?>
 
                         <div class="flex gap-3" onclick="event.stopPropagation();">
-                            <a href="https://www.google.com/maps/search/?api=1&query=<?= urlencode($o['house_no'].' '.$o['street'].' '.$o['barangay']) ?>" target="_blank" class="flex-1 py-4 glass-dark rounded-2xl flex items-center justify-center gap-2 text-stone-400 hover:text-white transition-all border border-white/5">
-                                <i data-lucide="navigation-2" class="w-4 h-4"></i>
-                                <span class="text-[10px] font-black uppercase tracking-widest">Maps</span>
-                            </a>
+<a href="locate_customer.php?order_id=<?= $o['id'] ?>" class="flex-1 py-4 glass-dark rounded-2xl flex items-center justify-center gap-2 text-stone-400 hover:text-white transition-all border border-white/5">
+    <i data-lucide="navigation-2" class="w-4 h-4"></i>
+    <span class="text-[10px] font-black uppercase tracking-widest">Locate</span>
+</a>
                             <form method="POST" class="flex-[2]">
                                 <input type="hidden" name="order_id" value="<?= $o['id'] ?>">
                                 <button name="complete_order" class="btn-gold w-full py-4 rounded-2xl text-white font-black uppercase text-[10px] tracking-widest">

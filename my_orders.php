@@ -210,10 +210,10 @@ $orders = $stmt->fetchAll();
                                             View Receipt <i data-lucide="receipt" class="w-3 h-3"></i>
                                         </a>
                                     <?php else: ?>
-                                        <button
-                                            class="w-full py-3 bg-white/5 hover:bg-[#CA8A4B] hover:text-white border border-white/10 rounded-xl text-[9px] uppercase tracking-widest font-bold transition flex items-center justify-center gap-2">
-                                            Track Order <i data-lucide="map" class="w-3 h-3"></i>
-                                        </button>
+<a href="track_order.php?id=<?= $order['id'] ?>"
+    class="w-full py-3 bg-white/5 hover:bg-[#CA8A4B] hover:text-white border border-white/10 rounded-xl text-[9px] uppercase tracking-widest font-bold transition flex items-center justify-center gap-2">
+    Track Order <i data-lucide="map" class="w-3 h-3"></i>
+</a>
                                     <?php endif; ?>
                                 </div>
                             </div>

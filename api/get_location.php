@@ -31,7 +31,28 @@ if (isset($_GET['lat']) && isset($_GET['lon'])) {
     } else {
         echo $result;
     }
+} elseif (isset($_GET['q'])) {
+    $query = urlencode($_GET['q']);
+    
+    $url = "https://nominatim.openstreetmap.org/search?format=json&q={$query}";
+    
+    // Nominatim REQUIRES a User-Agent header or they will block the request
+    $opts = [
+        'http' => [
+            'method' => "GET",
+            'header' => "User-Agent: KapeDeIsla_App_Localhost\r\n"
+        ]
+    ];
+    
+    $context = stream_context_create($opts);
+    $result = @file_get_contents($url, false, $context);
+    
+    if ($result === FALSE) {
+        echo json_encode(['error' => 'Failed to reach location service']);
+    } else {
+        echo $result;
+    }
 } else {
-    echo json_encode(['error' => 'Missing coordinates']);
+    echo json_encode(['error' => 'Missing parameters']);
 }
 ?>
