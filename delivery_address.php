@@ -130,9 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_address'])) {
                 <h1 class="font-serif text-5xl italic text-white">Delivery Spots</h1>
             </div>
             <div class="text-right">
-                <a href="my_orders.php" class="inline-flex items-center gap-2 text-[#CA8A4B] hover:text-white transition text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
-                    <i data-lucide="map" class="w-4 h-4"></i> Track Orders
-                </a>
                 <p class="text-[#CA8A4B] text-[10px] uppercase tracking-[0.3em] font-bold">Island Logistics</p>
                 <p class="text-stone-500 text-xs mt-1">Santa Fe • Bantayan • Madridejos</p>
             </div>
@@ -359,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_address'])) {
             document.getElementById('map-search').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     const query = this.value;
-                    fetch(`api/get_location.php?q=${encodeURIComponent(query)}`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
                         .then(res => res.json())
                         .then(data => {
                             if (data.length > 0) {
